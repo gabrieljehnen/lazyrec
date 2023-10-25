@@ -2,14 +2,15 @@
 
 #Author: Gabriel Jehnen
 
-SCOPE_LIST=$1
+TARGETS_LIST=$1
 FOLDER_NAME=$2
 USERNAME=$(whoami)
 FOLDER_PATH=/home/$USERNAME/$FOLDER_NAME
 
 mkdir $FOLDER_PATH
-mv $1 $FOLDER_PATH
 cd $FOLDER_PATH
+
+pwd
 
 configure_gf(){
     cd ~; mkdir .gf; cd .gf;
@@ -36,8 +37,8 @@ install_tools() {
 
 subdomain_enum(){
     echo -e "Starting Subdomain Enumeration (1/6)\n"
-    subfinder -dL $SCOPE_LIST -o subfinder.txt &
-    cat $SCOPE_LIST | assetfinder > assetfinder.txt &
+    subfinder -dL $TARGETS_LIST -o subfinder.txt &
+    cat $TARGETS_LIST | assetfinder > assetfinder.txt &
     wait
     sort -u -o all_subs.txt subfinder.txt assetfinder.txt
     cat all_subs.txt | httprobe > active_urls.txt
@@ -65,12 +66,7 @@ port_scan(){
 }
 
 gf(){
-    mkdir patterns; cd patterns
     cat gau.txt | gf xss > possible_xss.txt
-    cat gau.txt | gf sqli > possible_sqli.txt
-    cat gau.txt | gf idor > possible_idor.txt
-    cat gau.txt | gf redirect > possible_idor.txt
-
 }
 
 
