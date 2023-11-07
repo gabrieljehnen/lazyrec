@@ -3,19 +3,32 @@
 #Author: Gabriel Jehnen
 
 TARGETS_LIST=$1
-FOLDER_NAME=$2
+
+if [ "$#" -lt 1 ] || [ "$#" -gt 2 ]; then
+    echo "Usage: $0 <targets_file.txt> [foldername (optional)]"
+    exit 1
+elif ! test -f "$TARGETS_LIST" -o -r "$TARGETS_LIST"; then
+  echo "The first argument must be a text file."
+  echo "Usage: $0 <targets_file.txt> [foldername (optional)]"
+  exit 1
+fi
+
+FOLDER_NAME=${2:-"lazyrec"}
 USERNAME=$(whoami)
 FOLDER_PATH=/home/$USERNAME/$FOLDER_NAME
 
+
 mkdir $FOLDER_PATH
+cp $0 $FOLDER_PATH
+cp $1 $FOLDER_PATH
 cd $FOLDER_PATH
 
-pwd
 
 configure_gf(){
     cd ~; mkdir .gf; cd .gf;
     git clone https://github.com/1ndianl33t/Gf-Patterns.git;
     cd Gf-Patterns; mv * ..; rm -r Gf-Patterns;
+    cd $FOLDER_PATH;
 }
 
 install_tools() {
@@ -23,11 +36,16 @@ install_tools() {
     shift
     for tool in "$@"; do
         tool_name=$(echo $tool | awk -F/ '{print $NF}')
+        echo $tool_name
         if ! command -v "$tool_name" &> /dev/null; then
             if $tool_name == "naabu"; then
                 sudo apt install -y libcap-dev
             elif $tool_name == "gf"; then
-                configure_gf
+		echo "hehe"
+                if ls "~/.gf" 1> /dev/null 2>&1; then
+		    echo "hoho"
+                    configure_gf
+                fi
             fi
             echo "$tool_name não está instalado. Instalando..."
             go install -v "github.com/$author/$tool@latest"
@@ -66,13 +84,15 @@ port_scan(){
 }
 
 gf(){
-    cat gau.txt | gf xss > possible_xss.txt
+    cat gau.txt | gf xss > xss.txt
+    cat gau.txt | gf sqli > sqli.txt
+    cat gau.txt | gf redirect > redirect.txt
 }
 
 
 # Instale as ferramentas de diferentes autores
 install_tools "tomnomnom" "assetfinder" "httprobe" "gf" "waybackurls"
-install_tools "projectdiscovery" "subfinder/v2/cmd/subfinder" "naabu/v2/cmd/naabu" "katana/v2/cmd/katana"
+install_tools "projectdiscovery" "subfinder/v2/cmd/subfinder" "naabu/v2/cmd/naabu" "katana/cmd/katana"
 install_tools "lc" "gau/v2/cmd/gau"
 install_tools "PentestPad" "subzy"
 
