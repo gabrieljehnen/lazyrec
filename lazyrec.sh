@@ -26,20 +26,22 @@ FOLDER_NAME=${2:-"lazyrec"}
 USERNAME=$(whoami)
 FOLDER_PATH=/home/$USERNAME/$FOLDER_NAME
 
-echo $1
-cat $1
-
 mkdir $FOLDER_PATH
 cp $1 $FOLDER_PATH
 cd $FOLDER_PATH
-
-pwd
+mkdir patterns
 
 download_patterns(){
     cd ~; mkdir .gf; cd .gf;
     git clone https://github.com/1ndianl33t/Gf-Patterns.git;
     cd Gf-Patterns; mv * ..; rm -r Gf-Patterns;
     cd $FOLDER_PATH;
+}
+
+check_golang(){
+    if ! $(which go &> /dev/null); then
+	sudo apt install golang-go;
+    fi
 }
 
 install_tools(){
@@ -49,29 +51,40 @@ install_tools(){
         tool_name=$(echo $tool | awk -F/ '{print $NF}')
         echo $tool_name
         if ! command -v "$tool_name" &> /dev/null; then
-            if $tool_name == "naabu"; then
-                sudo apt install -y libcap-dev
-            fi
-            echo "$tool_name não está instalado. Instalando..."
+	    if $tool_name == "nmap"; then
+		sudo apt install -y nmap
+		continue
+	    elif $tool_name == "httprobe"; then
+		go install -v "github.com/$author/$tool@master"
+		cd ~/go/bin; sudo mv $tool_name /usr/bin
+		continue
+	    fi
+            echo -e "$tool_name não está instalado. Instalando...\n"
             go install -v "github.com/$author/$tool@latest"
+	    cd ~/go/bin; sudo mv $tool_name /usr/bin
         fi
-	if ! ls ~/.gf 1> /dev/null 2>&1; then
-	    download_patterns
-	fi
+    if ! ls ~/.gf 1> /dev/null 2>&1; then
+	download_patterns
+    fi
+	cd $FOLDER_PATH
     done
-    pwd
 }
 
 subdomain_enum(){
     echo -e "Starting Subdomain Enumeration (1/6)\n"
-    meg /.well-known/security.txt --savestatus 200 $TARGETS_LIST &
     subfinder -dL $TARGETS_LIST -o subfinder.txt &
     cat $TARGETS_LIST | assetfinder --subs-only > assetfinder.txt &
     wait
     sort -u -o all_subs.txt subfinder.txt assetfinder.txt
-    cat all_subs.txt | httprobe > active_urls.txt
-    rm assetfinder.txt; rm subfinder.txt; rm all_subs.txt
     echo -e "Finished Subdomain Enumeration\n"
+}
+
+
+probe_http(){
+    echo -e "Probing Active Hosts (2/6)\n"
+    cat all_subs.txt | httprobe --prefer-https > active_urls.txt
+    rm assetfinder.txt; rm subfinder.txt; rm all_subs.txt
+    echo -e "Finished Probing Hosts\n"
 }
 
 verify_subtakeover(){
@@ -87,14 +100,14 @@ gather_urls(){
 
 port_scan(){
     echo -e "Starting Port Scanning (3/6)\n"
-    sed 's~^https://~~' active_urls.txt > raw_active_urls.txt
-    naabu -list raw_active_urls.txt -exclude-ports 80,443 -v -o ports.txt 
+    sed 's~^https://~~' active_urls.txt > raw_active_urls.txt; cat raw_active_urls.txt;
+    nmap -iL raw_active_urls.txt --top-ports 100 --exclude-ports 80,443 -open -o open_ports.txt
     rm raw_active_urls.txt
     echo -e "Finished Port Scanning\n"
 }
 
 gf(){
-    mkdir patterns
+    cd patterns;
     cat gau.txt | gf xss > patterns/xss.txt
     cat gau.txt | gf sqli > patterns/sqli.txt
     cat gau.txt | gf redirect > patterns/redirect.txt
@@ -105,13 +118,15 @@ gf(){
 
 # Instale as ferramentas de diferentes autores
 install_tools "tomnomnom" "assetfinder" "httprobe" "gf" "waybackurls"
-install_tools "projectdiscovery" "subfinder/v2/cmd/subfinder" "naabu/v2/cmd/naabu" "katana/cmd/katana"
+install_tools "projectdiscovery" "subfinder/v2/cmd/subfinder"
 install_tools "lc" "gau/v2/cmd/gau"
-install_tools "PentestPad" "subzy"
+install_tools "LukaSikic" "subzy"
 
-subdomain_enum
-verify_subtakeover
-port_scan
-gather_urls
-gf
+check_golang #Checks if golang is installed
+subdomain_enum #Starts Subdomain Enumeration
+probe_http #Checks Active URLs
+verify_subtakeover #Verifies if a subdomain is vulnerable to Subdomain Takeover
+port_scan #Starts Port Scanning to active hosts
+gather_urls #Gets as many URLs as possible
+gf #Extract patterns from gathered URLs
 
