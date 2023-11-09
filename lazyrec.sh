@@ -59,7 +59,7 @@ install_tools(){
 		#continue
 	    fi
 	    echo $tool_name; echo $tool_name
-            echo -e "$tool_name não está instalado. Instalando...\n"
+            echo -e "$tool_name não está instalado. Instalando..."
             go install -v "github.com/$author/$tool@latest"
 	    cd ~/go/bin; sudo mv $tool_name /usr/bin
         fi
@@ -71,46 +71,48 @@ install_tools(){
 }
 
 subdomain_enum(){
-    echo -e "Starting Subdomain Enumeration (1/6)\n"
+    echo -e "Starting Subdomain Enumeration (1/6)"
     subfinder -dL $TARGETS_LIST -o subfinder.txt &
     cat $TARGETS_LIST | assetfinder --subs-only > assetfinder.txt &
     wait
     sort -u -o all_subs.txt subfinder.txt assetfinder.txt
-    echo -e "Finished Subdomain Enumeration\n"
+    echo -e "Finished Subdomain Enumeration"
 }
 
 
 probe_http(){
-    echo -e "Probing Active Hosts (2/6)\n"
+    echo -e "Probing Active Hosts (2/6)"
     cat all_subs.txt | httprobe > active_urls.txt
-    echo -e "Finished Probing Hosts\n"
+    echo -e "Finished Probing Hosts"
 }
 
 verify_subtakeover(){
-    echo -e "Verifying Urls vulnerable to Subdomain Takeover (2/6)\n"
+    echo -e "Verifying Urls vulnerable to Subdomain Takeover (2/6)"
     subzy run --targets active_urls.txt
-    echo -e "Finished Verifying Subs Takeover\n"
+    echo -e "Finished Verifying Subs Takeover"
 }
 
 gather_urls(){
     pwd
-    echo -e "Gathering Url's... This may take a while (\n"
+    echo -e "Gathering URLs... This may take a while"
     cat active_urls.txt | gau --threads 3 > gau.txt
+    echo -e "Finished Gathering URLs"
 }
 
 port_scan(){
-    echo -e "Starting Port Scanning (3/6)\n"
+    echo -e "Starting Port Scanning (3/6)"
     sed -e 's/https\?:\/\///' active_urls.txt > raw_active_urls.txt;
     nmap -iL raw_active_urls.txt --top-ports 30 --exclude-ports 80,443 -open -o open_ports.txt
-    echo -e "Finished Port Scanning\n"
+    echo -e "Finished Port Scanning"
 }
 
-gf(){
+grep_patterns(){
+    echo "Grepping Patterns"
     cat gau.txt | gf xss > patterns/xss.txt
     cat gau.txt | gf sqli > patterns/sqli.txt
-    cat gau.txt | gf redirect > patterns/redirect.txt
-    cat gau.txt | gf idor > patterns/idor.txt
     cat gau.txt | gf lfi > patterns/lfi.txt
+    cat gau.txt | gf redirect > patterns/redirect.txt
+    echo "Finished"
 }
 
 
@@ -121,10 +123,11 @@ install_tools "lc" "gau/v2/cmd/gau"
 install_tools "LukaSikic" "subzy"
 
 check_golang #Checks if golang is installed
+#install_tools #Download all dependencies
 subdomain_enum #Starts Subdomain Enumeration
 probe_http #Checks Active URLs
-verify_subtakeover #Verifies if a subdomain is vulnerable to Subdomain Takeover
+#verify_subtakeover #Verifies if a subdomain is vulnerable to Subdomain Takeover
 #port_scan #Starts Port Scanning to active hosts
 gather_urls #Gets as many URLs as possible
-gf #Extract patterns from gathered URLs
+grep_patterns #Extract patterns from gathered URLs
 
