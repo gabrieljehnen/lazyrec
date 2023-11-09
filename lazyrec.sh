@@ -53,10 +53,10 @@ install_tools(){
 	    if $tool_name == "nmap"; then
 		sudo apt install -y nmap
 		continue
-	    #elif $tool_name == "httprobe"; then
-		#go install -v "github.com/$author/$tool@master"
-		#cd ~/go/bin; sudo mv $tool_name /usr/bin
-		#continue
+	    elif $tool_name == "httprobe"; then
+		go install -v "github.com/$author/$tool@master"
+		cd ~/go/bin; sudo mv $tool_name /usr/bin
+		continue
 	    fi
 	    echo $tool_name; echo $tool_name
             echo -e "$tool_name não está instalado. Instalando..."
@@ -71,39 +71,49 @@ install_tools(){
 }
 
 subdomain_enum(){
-    echo -e "Starting Subdomain Enumeration (1/6)"
+    echo -e "Starting Subdomain Enumeration with [Tomnomnom's Assetfinder & Projectdiscovery's Subfinder] (1/6)"
     subfinder -dL $TARGETS_LIST -o subfinder.txt &
     cat $TARGETS_LIST | assetfinder --subs-only > assetfinder.txt &
     wait
     sort -u -o all_subs.txt subfinder.txt assetfinder.txt
+    rm subfinder.txt; rm assetfinder.txt
     echo -e "Finished Subdomain Enumeration"
 }
 
 
 probe_http(){
-    echo -e "Probing Active Hosts (2/6)"
+    echo -e "Probing Active Hosts with [Tomnomnom's Httprobe] (2/6)"
     cat all_subs.txt | httprobe > active_urls.txt
+    rm all_subs.txt;
     echo -e "Finished Probing Hosts"
 }
 
+get_responses(){
+    echo "Fetching URLs and collecting Responses with [Tomnomnom's Meg] (3/6)"
+    meg --savestatus 200 --delay 10000 / active_urls.txt home
+    meg --savestatus 200 --delay 10000 /robots.txt active_urls.txt robots.txt
+    meg --savestatus 200 --delay 10000 /.well-known/security.txt active_urls.txt security.txt
+    echo "Finished Meg"
+}
+
 verify_subtakeover(){
-    echo -e "Verifying Urls vulnerable to Subdomain Takeover (2/6)"
+    echo -e "Verifying Urls vulnerable to Subdomain Takeover with [LukaSikic's Subzy] (4/6)"
     subzy run --targets active_urls.txt
     echo -e "Finished Verifying Subs Takeover"
 }
 
-gather_urls(){
-    pwd
-    echo -e "Gathering URLs... This may take a while"
-    cat active_urls.txt | gau --threads 3 > gau.txt
-    echo -e "Finished Gathering URLs"
-}
-
 port_scan(){
-    echo -e "Starting Port Scanning (3/6)"
+    echo -e "Starting Port Scanning with [Nmap] (5/6)"
     sed -e 's/https\?:\/\///' active_urls.txt > raw_active_urls.txt;
     nmap -iL raw_active_urls.txt --top-ports 30 --exclude-ports 80,443 -open -o open_ports.txt
     echo -e "Finished Port Scanning"
+}
+
+gather_urls(){
+    pwd
+    echo -e "Gathering URLs with [lc's Gau]. This may take a while... (6/6)"
+    cat active_urls.txt | gau --threads 3 > gau.txt
+    echo -e "Finished Gathering URLs"
 }
 
 grep_patterns(){
@@ -117,15 +127,16 @@ grep_patterns(){
 
 
 # Instale as ferramentas de diferentes autores
-install_tools "tomnomnom" "assetfinder" "httprobe" "gf" "waybackurls"
+install_tools "tomnomnom" "assetfinder" "meg" "httprobe" "gf" "waybackurls"
 install_tools "projectdiscovery" "subfinder/v2/cmd/subfinder"
 install_tools "lc" "gau/v2/cmd/gau"
 install_tools "LukaSikic" "subzy"
 
 check_golang #Checks if golang is installed
-#install_tools #Download all dependencies
+install_tools #Download all dependencies
 subdomain_enum #Starts Subdomain Enumeration
 probe_http #Checks Active URLs
+get_responses
 #verify_subtakeover #Verifies if a subdomain is vulnerable to Subdomain Takeover
 #port_scan #Starts Port Scanning to active hosts
 gather_urls #Gets as many URLs as possible
